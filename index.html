@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>卷积核实验台</title>
+    <style>
+        body { 
+            font-family: Arial; 
+            margin: 20px; 
+            background: #f0f0f0;
+            display: flex;
+            justify-content: center;
+        }
+        .container { 
+            display: grid;
+            grid-template-columns: repeat(3, auto);
+            gap: 30px;
+        }
+        .panel { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .grid-container {
+            display: grid;
+            gap: 0;
+            border: 2px solid #333;
+        }
+        /* 输入图像样式 */
+        #input-grid {
+            grid-template: repeat(5, 50px) / repeat(5, 50px);
+        }
+        /* 卷积核样式 */
+        #kernel-grid {
+            grid-template: repeat(3, 50px) / repeat(3, 50px);
+        }
+        /* 输出特征图样式 */
+        #output-grid {
+            grid-template: repeat(3, 50px) / repeat(3, 50px);
+        }
+        .cell {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            box-sizing: border-box;
+            background: white;
+        }
+        .input-cell {
+            border: 2px solid #333;
+            font-weight: bold;
+        }
+        .x-cell { 
+            background: #333; 
+            color: white;
+        }
+        .kernel-cell input {
+            width: 100%;
+            height: 100%;
+            border: none;
+            text-align: center;
+            font-size: 16px;
+            background: #f8f8f8;
+        }
+        .kernel-cell input:focus {
+            background: #fff;
+            outline: 2px solid #4CAF50;
+        }
+        .output-cell {
+            border: 2px solid #666;
+            background: rgba(255,0,0,0.1);
+            transition: all 0.3s;
+        }
+        h3 { 
+            color: #444; 
+            margin: 0 0 15px 0;
+        }
+        button { 
+            margin-top: 15px;
+            background: #4CAF50;
+            color: white; 
+            border: none; 
+            padding: 8px 16px;
+            border-radius: 4px; 
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="panel">
+            <h3>输入图像 (5×5)</h3>
+            <div id="input-grid" class="grid-container"></div>
+        </div>
+
+        <div class="panel">
+            <h3>卷积核 (3×3)</h3>
+            <div id="kernel-grid" class="grid-container"></div>
+            <button onclick="resetKernel()">重置归零</button>
+        </div>
+
+        <div class="panel">
+            <h3>特征图 (3×3)</h3>
+            <div id="output-grid" class="grid-container"></div>
+        </div>
+    </div>
+
+<script>
+// 生成固定X型图案（5x5）
+const createXPattern = () => {
+    const size = 5;
+    let pattern = [];
+    for(let i=0; i<size; i++) {
+        for(let j=0; j<size; j++) {
+            pattern.push(i === j || i + j === size - 1 ? 1 : 0);
+        }
+    }
+    return pattern;
+};
+
+let inputData = createXPattern();
+let kernel = Array(3).fill().map(() => Array(3).fill(0));
+
+function init() {
+    // 初始化输入网格
+    const inputGrid = document.getElementById('input-grid');
+    inputData.forEach((val, index) => {
+        const cell = document.createElement('div');
+        cell.className = `cell input-cell ${val ? 'x-cell' : ''}`;
+        cell.textContent = val;
+        inputGrid.appendChild(cell);
+    });
+
+    // 初始化卷积核
+    const kernelGrid = document.getElementById('kernel-grid');
+    for(let i=0; i<9; i++){
+        const cell = document.createElement('div');
+        cell.className = 'cell kernel-cell';
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.value = 0;
+        input.placeholder = '0';
+        input.oninput = (e) => {
+            const value = parseInt(e.target.value);
+            if (value !== 0 && value !== 1) {
+                e.target.value = e.target.value.slice(0, -1); // 删除最后一个输入的字符
+                updateKernel();
+            } else {
+                updateKernel();
+            }
+        };
+        cell.appendChild(input);
+        kernelGrid.appendChild(cell);
+    }
+
+    // 初始化输出网格
+    const outputGrid = document.getElementById('output-grid');
+    for(let i=0; i<9; i++){
+        const cell = document.createElement('div');
+        cell.className = 'cell output-cell';
+        outputGrid.appendChild(cell);
+    }
+}
+
+function computeConv() {
+    const output = [];
+    for(let y=0; y<3; y++){
+        for(let x=0; x<3; x++){
+            let sum = 0;
+            for(let ky=0; ky<3; ky++){
+                for(let kx=0; kx<3; kx++){
+                    sum += inputData[(y+ky)*5 + (x+kx)] * kernel[ky][kx];
+                }
+            }
+            output.push(sum);
+        }
+    }
+    return output;
+}
+
+function updateDisplay() {
+    const outputs = computeConv();
+    const maxVal = Math.max(...outputs.map(Math.abs));
+    
+    document.querySelectorAll('#output-grid .cell').forEach((cell, i) => {
+        const val = outputs[i];
+        cell.textContent = val.toFixed(1);
+        const alpha = maxVal > 0 ? Math.abs(val)/maxVal : 0;
+        cell.style.background = `rgba(255,50,50,${alpha*0.7})`;
+        cell.style.color = alpha > 0.5 ? 'white' : '#333';
+    });
+}
+
+function updateKernel() {
+    const inputs = Array.from(document.querySelectorAll('#kernel-grid input'));
+    kernel = [
+        [parseInt(inputs[0].value) || 0, parseInt(inputs[1].value) || 0, parseInt(inputs[2].value) || 0],
+        [parseInt(inputs[3].value) || 0, parseInt(inputs[4].value) || 0, parseInt(inputs[5].value) || 0],
+        [parseInt(inputs[6].value) || 0, parseInt(inputs[7].value) || 0, parseInt(inputs[8].value) || 0]
+    ];
+    updateDisplay();
+}
+
+function resetKernel() {
+    document.querySelectorAll('#kernel-grid input').forEach(input => {
+        input.value = 0;
+    });
+    kernel = Array(3).fill().map(() => Array(3).fill(0));
+    updateDisplay();
+}
+
+// 初始化执行
+init();
+updateDisplay();
+</script>
+</body>
+</html>
